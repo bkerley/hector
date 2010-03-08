@@ -6,6 +6,7 @@ module Hector
   #  - normalize(username)
   #
   class YamlIdentityAdapter
+    include BCrypt
     attr_reader :filename
 
     def initialize(filename)
@@ -13,12 +14,14 @@ module Hector
     end
 
     def authenticate(username, password)
-      load_identities[normalize(username)] == hash(normalize(username), password)
+      Password.new(load_identities[normalize(username)]) == password
+    rescue BCrypt::Errors::InvalidHash
+      false
     end
 
     def remember(username, password)
       identities = load_identities
-      identities[normalize(username)] = hash(normalize(username), password)
+      identities[normalize(username)] = Password.create(password)
       store_identities(identities)
     end
 
@@ -42,10 +45,6 @@ module Hector
         File.open(filename, "w") do |file|
           file.puts(identities.to_yaml)
         end
-      end
-
-      def hash(username, password)
-        Digest::SHA1.hexdigest(Digest::SHA1.hexdigest(username) + password)
       end
 
       def ensure_file_exists
